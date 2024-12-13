@@ -35,7 +35,6 @@ export async function findClientDir(client: InstallableClient, desiredVersionRan
 
 const BASE_URL_V3 = "https://mirror.openshift.com/pub/openshift-v3/clients/";
 const BASE_URL_V4 = "https://mirror.openshift.com/pub/openshift-v4/clients/";
-const DEVELOPERS_BASE_URL = "https://developers.redhat.com/content-gateway/rest/mirror/pub/openshift-v4/clients/";
 
 function resolveBaseDownloadDir(client: InstallableClient, desiredVersionRange: semver.Range): string {
     if (isOCV3(client, desiredVersionRange)) {
@@ -46,12 +45,8 @@ function resolveBaseDownloadDir(client: InstallableClient, desiredVersionRange: 
     const clientDirOverride = ClientDetailOverrides[client]?.mirror?.directoryName;
     const clientDir = clientDirOverride || client;
 
-    let clientDirUrl = `${BASE_URL_V4 + clientDir}/`;
+    const clientDirUrl = `${BASE_URL_V4 + clientDir}/`;
 
-    // odo moved to the new location, more details here https://github.com/redhat-actions/openshift-tools-installer/issues/66
-    if (client === "odo") {
-        clientDirUrl = `${DEVELOPERS_BASE_URL + clientDir}/`;
-    }
     // ghCore.info(`Resolved base download dir for ${client} to ${clientDirUrl}`);
 
     return clientDirUrl;
@@ -94,4 +89,43 @@ export async function getDirContents(dirUrl: string): Promise<string[]> {
     }
 
     return linkedFiles;
+}
+
+export async function getFileURL(dirUrl: string, fileName: string): Promise<string> {
+    ghCore.debug(`GET ${dirUrl}`);
+
+    const directoryPageRes = await HttpClient.get(dirUrl, { Accept: "text/html" });
+    await assertOkStatus(directoryPageRes);
+    const directoryPage = await directoryPageRes.readBody();
+
+    const $ = cheerio.load(directoryPage);
+
+    const linkedFiles = $("td a").toArray();
+
+    let url = "";
+
+    for (const e of linkedFiles) {
+        const href = $(e).attr("href");
+        if (href) {
+            const hrefComponents = href.split("/");
+            let foundFilename = "";
+            if (href.endsWith("/")) {
+                foundFilename = hrefComponents[hrefComponents.length - 2];
+            }
+            else {
+                foundFilename = hrefComponents[hrefComponents.length - 1];
+            }
+            if (fileName === foundFilename) {
+                if (href.startsWith("http")) {
+                    url = href;
+                }
+                else {
+                    url = `${dirUrl}${fileName}`;
+                }
+                break;
+            }
+        }
+    }
+
+    return url;
 }

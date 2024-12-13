@@ -3,7 +3,7 @@ import * as semver from "semver";
 
 import { Inputs } from "../generated/inputs-outputs";
 import { findClientVersionFromGithub, getReleaseAssets } from "../github-client-finder/repository-finder";
-import { findClientDir, getDirContents } from "../mirror-client-finder/directory-finder";
+import { findClientDir, getDirContents, getFileURL } from "../mirror-client-finder/directory-finder";
 import { isOCV3, getOCV3File } from "../mirror-client-finder/oc-3-finder";
 
 import {
@@ -120,7 +120,7 @@ export async function findMatchingClient(source: string, client: InstallableClie
     ghCore.info(`Selecting ${archiveFilename}`);
     let archiveUrl;
     if (source === MIRROR) {
-        archiveUrl = `${ClientDirectoryUrl}${archiveFilename}`;
+        archiveUrl = await getFileURL(ClientDirectoryUrl, archiveFilename);
     }
     else {
         archiveUrl = getGitHubReleaseAssetPath(client, clientVersion, archiveFilename);
